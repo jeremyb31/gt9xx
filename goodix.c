@@ -407,8 +407,7 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 
-	input_mt_init_slots(ts->input_dev, GOODIX_MAX_CONTACTS,
-			    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
+	input_mt_init_slots(ts->input_dev, GOODIX_MAX_CONTACTS);
 
 	ts->input_dev->name = "Goodix Capacitive TouchScreen";
 	ts->input_dev->phys = "input/ts";
