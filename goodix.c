@@ -34,6 +34,8 @@ struct goodix_ts_data {
 	unsigned int int_trigger_type;
 };
 
+#define GOODIX_CHANGE_X2Y		1
+
 #define GOODIX_MAX_HEIGHT		4096
 #define GOODIX_MAX_WIDTH		4096
 #define GOODIX_INT_TRIGGER		1
@@ -122,6 +124,10 @@ static void goodix_ts_report_touch(struct goodix_ts_data *ts, u8 *coor_data)
 	int input_x = get_unaligned_le16(&coor_data[1]);
 	int input_y = get_unaligned_le16(&coor_data[3]);
 	int input_w = get_unaligned_le16(&coor_data[5]);
+
+	#if GOODIX_CHANGE_X2Y
+		swap(input_x, input_y);
+	#endif
 
 	input_mt_slot(ts->input_dev, id);
 	input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, true);
@@ -287,6 +293,10 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 	ts->input_dev->evbit[0] = BIT_MASK(EV_SYN) |
 				  BIT_MASK(EV_KEY) |
 				  BIT_MASK(EV_ABS);
+
+	#if GOODIX_CHANGE_X2Y
+		swap(ts->abs_x_max, ts->abs_y_max);
+	#endif
 
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0,
 				ts->abs_x_max, 0, 0);
