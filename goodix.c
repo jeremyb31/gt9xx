@@ -92,6 +92,10 @@ static int int_cfg_addr[] = { PIO_INT_CFG0_OFFSET, \
 			      PIO_INT_CFG2_OFFSET, \
 			      PIO_INT_CFG3_OFFSET };
 
+/* Addresses to scan */
+static __u32 twi_id;
+static const unsigned short normal_i2c[2] = {0x5d, I2C_CLIENT_END};
+
 /**
  * goodix_i2c_read - read data from a register of the i2c slave device.
  *
@@ -512,21 +516,18 @@ static const struct i2c_device_id goodix_ts_id[] = {
 	{ }
 };
 
-static const struct acpi_device_id goodix_acpi_match[] = {
-	{ "GDIX1001", 0 },
-	{ }
-};
-MODULE_DEVICE_TABLE(acpi, goodix_acpi_match);
+MODULE_DEVICE_TABLE(i2c, goodix_ts_id);
 
 static struct i2c_driver goodix_ts_driver = {
+	.class = I2C_CLASS_HWMON,
 	.probe = goodix_ts_probe,
 	.remove = goodix_ts_remove,
 	.id_table = goodix_ts_id,
 	.driver = {
 		.name = "Goodix-TS",
 		.owner = THIS_MODULE,
-		.acpi_match_table = goodix_acpi_match,
 	},
+	.address_list = normal_i2c,
 };
 module_i2c_driver(goodix_ts_driver);
 
