@@ -278,7 +278,7 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 {
 	int error;
 
-	ts->input_dev = devm_input_allocate_device(&ts->client->dev);
+	ts->input_dev = input_allocate_device();
 	if (!ts->input_dev) {
 		dev_err(&ts->client->dev, "Failed to allocate input device.");
 		return -ENOMEM;
@@ -330,7 +330,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		return -ENXIO;
 	}
 
-	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
+	ts = kzalloc(sizeof(*ts), GFP_KERNEL);
 	if (!ts)
 		return -ENOMEM;
 
@@ -356,9 +356,8 @@ static int goodix_ts_probe(struct i2c_client *client,
 		return error;
 
 	irq_flags = goodix_irq_flags[ts->int_trigger_type] | IRQF_ONESHOT;
-	error = devm_request_threaded_irq(&ts->client->dev, client->irq,
-					  NULL, goodix_ts_irq_handler,
-					  irq_flags, client->name, ts);
+	error = request_threaded_irq(client->irq, NULL, goodix_ts_irq_handler,
+				     irq_flags, client->name, ts);
 	if (error) {
 		dev_err(&client->dev, "request IRQ failed: %d.\n", error);
 		return error;
