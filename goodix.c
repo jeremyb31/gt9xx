@@ -25,6 +25,13 @@
 #include <linux/slab.h>
 #include <asm/unaligned.h>
 
+#include <asm/io.h>
+#include <linux/gpio.h>
+#include <mach/irqs.h>
+#include <mach/system.h>
+#include <mach/hardware.h>
+#include <plat/sys_config.h>
+
 struct goodix_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
@@ -52,12 +59,38 @@ struct goodix_ts_data {
 #define RESOLUTION_LOC		1
 #define TRIGGER_LOC		6
 
-static const unsigned long goodix_irq_flags[] = {
-	IRQ_TYPE_EDGE_RISING,
-	IRQ_TYPE_EDGE_FALLING,
-	IRQ_TYPE_LEVEL_LOW,
-	IRQ_TYPE_LEVEL_HIGH,
-};
+/* Base defines for gpio irq */
+#define PIO_BASE_ADDRESS	(0x01c20800)
+#define PIO_RANGE_SIZE		(0x400)
+
+#define PIO_INT_STAT_OFFSET	(0x214)
+#define PIO_INT_CTRL_OFFSET	(0x210)
+
+typedef enum {
+     PIO_INT_CFG0_OFFSET = 0x200,
+     PIO_INT_CFG1_OFFSET = 0x204,
+     PIO_INT_CFG2_OFFSET = 0x208,
+     PIO_INT_CFG3_OFFSET = 0x20c,
+} int_cfg_offset;
+
+typedef enum {
+	POSITIVE_EDGE = 0x0,
+	NEGATIVE_EDGE = 0x1,
+	HIGH_LEVEL = 0x2,
+	LOW_LEVEL = 0x3,
+	DOUBLE_EDGE = 0x4
+} ext_int_mode;
+
+#define CTP_IRQ_NO		(gpio_int_info[0].port_num)
+#define CTP_IRQ_MODE		(NEGATIVE_EDGE)
+
+static void * __iomem gpio_addr = NULL;
+static int gpio_int_hdle = 0;
+static user_gpio_set_t gpio_int_info[1];
+static int int_cfg_addr[] = { PIO_INT_CFG0_OFFSET, \
+			      PIO_INT_CFG1_OFFSET, \
+			      PIO_INT_CFG2_OFFSET, \
+			      PIO_INT_CFG3_OFFSET };
 
 /**
  * goodix_i2c_read - read data from a register of the i2c slave device.
@@ -180,10 +213,79 @@ static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 
 	goodix_process_events(ts);
 
+	/* Clear the IRQ_EINT21 interrupt pending */
+	reg_val = readl(gpio_addr + PIO_INT_STAT_OFFSET);
+
+	if (reg_val&(1<<(CTP_IRQ_NO)))
+		writel(reg_val&(1<<(CTP_IRQ_NO)), \
+			gpio_addr + PIO_INT_STAT_OFFSET);
+	else
+		return IRQ_NONE;
+
 	if (i2c_master_send(ts->client, end_cmd, sizeof(end_cmd)) < 0)
 		dev_err(&ts->client->dev, "I2C write end_cmd error\n");
 
 	return IRQ_HANDLED;
+}
+
+/**
+ * goodix_clear_penirq - Clear int pending
+ *
+ */
+static void goodix_clear_penirq(void)
+{
+	int reg_val;
+	reg_val = readl(gpio_addr + PIO_INT_STAT_OFFSET);
+	if (reg_val = (reg_val&(1<<(CTP_IRQ_NO))))
+		writel(reg_val, gpio_addr + PIO_INT_STAT_OFFSET);
+	return;
+}
+
+/**
+ * goodix_set_irq_mode - Configure irq to int port.
+ *
+ * @ts: our goodix_ts_data pointer
+ * @major_key: section key
+ * @subkey: section subkey
+ * @int_mode: int mode
+ *
+ * Must be called during probe
+ */
+static int goodix_set_irq_mode(struct goodix_ts_data *ts, \
+				char *major_key, char *subkey, \
+				ext_int_mode int_mode)
+{
+	__u32 reg_num = 0;
+	__u32 reg_addr = 0;
+	__u32 reg_val = 0;
+
+	dev_info(&ts->client->dev, "Config gpio to int mode.");
+
+	if (gpio_int_hdle)
+		gpio_release(gpio_int_hdle, 2);
+
+	gpio_int_hdle = gpio_request_ex(major_key, subkey);
+	if (!gpio_int_hdle) {
+		dev_err(&ts->client->dev, "Request ctp_int_port failed.\n");
+		return -1;
+	}
+ 
+	gpio_get_one_pin_status(gpio_int_hdle, gpio_int_info, subkey, 1);
+
+	reg_num = (gpio_int_info[0].port_num)%8;
+	reg_addr = (gpio_int_info[0].port_num)/8;
+	reg_val = readl(gpio_addr + int_cfg_addr[reg_addr]);
+	reg_val &= (~(7 << (reg_num * 4)));
+	reg_val |= (int_mode << (reg_num * 4));
+	writel(reg_val, gpio_addr + int_cfg_addr[reg_addr]);
+
+	goodix_clear_penirq();
+
+	reg_val = readl(gpio_addr + PIO_INT_CTRL_OFFSET);
+	reg_val |= (1 << (gpio_int_info[0].port_num));
+	writel(reg_val, gpio_addr + PIO_INT_CTRL_OFFSET);
+
+	return 0;
 }
 
 /**
@@ -365,15 +467,45 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (error)
 		return error;
 
-	irq_flags = goodix_irq_flags[ts->int_trigger_type] | IRQF_ONESHOT;
-	error = request_threaded_irq(client->irq, NULL, goodix_ts_irq_handler,
-				     irq_flags, client->name, ts);
+	gpio_addr = ioremap(PIO_BASE_ADDRESS, PIO_RANGE_SIZE);
+	if (!gpio_addr)
+		return -EIO;
+
+	error = goodix_set_irq_mode(ts, "ctp_para", "ctp_int_port", \
+				    CTP_IRQ_MODE);
+	if (error < 0) {
+		dev_err(&ts->client->dev, "Set irq mode failed.");
+		enable_irq(SW_INT_IRQNO_PIO);
+	}
+
+	error = request_threaded_irq(SW_INT_IRQNO_PIO, NULL, \
+				     goodix_ts_irq_handler, \
+				     IRQF_TRIGGER_RISING | IRQF_ONESHOT, \
+				     client->name, ts);
 	if (error) {
 		dev_err(&client->dev, "request IRQ failed: %d.\n", error);
 		return error;
 	}
 
 	return 0;
+}
+
+static int goodix_ts_remove(struct i2c_client *client)
+{
+	struct goodix_ts_data *ts = i2c_get_clientdata(client);
+
+	free_irq(SW_INT_IRQNO_PIO, ts);
+	input_unregister_device(ts->input_dev);
+	i2c_set_clientdata(client, NULL);
+	kfree(ts);
+
+	if (gpio_addr)
+		iounmap(gpio_addr);
+
+	if (gpio_int_hdle)
+		gpio_release(gpio_int_hdle, 2);
+ 
+ 	return 0;
 }
 
 static const struct i2c_device_id goodix_ts_id[] = {
@@ -389,6 +521,7 @@ MODULE_DEVICE_TABLE(acpi, goodix_acpi_match);
 
 static struct i2c_driver goodix_ts_driver = {
 	.probe = goodix_ts_probe,
+	.remove = goodix_ts_remove,
 	.id_table = goodix_ts_id,
 	.driver = {
 		.name = "Goodix-TS",
