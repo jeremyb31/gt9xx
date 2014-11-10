@@ -574,6 +574,25 @@ static int goodix_ts_remove(struct i2c_client *client)
  	return 0;
 }
 
+/**
+ * goodix_ts_detect - Device detection callback for automatic device creation
+ *
+ */
+static int goodix_ts_detect(struct i2c_client *client, struct i2c_board_info *info)
+{
+	struct i2c_adapter *adapter = client->adapter;
+
+	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA))
+		return -ENODEV;
+
+	if (twi_id == adapter->nr) {
+		printk(KERN_INFO "Detected chip gt9xx at adapter %d, address 0x%02x\n", i2c_adapter_id(adapter), client->addr);
+		strlcpy(info->type, GOODIX_CTP_NAME, I2C_NAME_SIZE);
+ 		return 0;
+	} else
+		return -ENODEV;
+}
+
 static const struct i2c_device_id goodix_ts_id[] = {
 	{ "GDIX1001:00", 0 },
 	{ }
@@ -592,7 +611,37 @@ static struct i2c_driver goodix_ts_driver = {
 	},
 	.address_list = normal_i2c,
 };
-module_i2c_driver(goodix_ts_driver);
+
+/**
+ * goodix_ts_init - Driver install function
+ *
+ */
+static int __devinit goodix_ts_init(void)
+{
+	int ret = -1;
+
+	ret = goodix_fetch_sysconfig_para();
+	if (ret != 0)
+		return ret;
+	
+	goodix_ts_driver.detect = goodix_ts_detect;
+	ret = i2c_add_driver(&goodix_ts_driver);
+	return ret;
+}
+
+/**
+ * goodix_ts_exit - Driver uninstall function
+ *
+ */
+static void __exit goodix_ts_exit(void)
+{
+	printk(KERN_INFO "Driver gt9xx unregistered");
+	i2c_del_driver(&goodix_ts_driver);
+	return;
+}
+
+module_init(goodix_ts_init);
+module_exit(goodix_ts_exit);
 
 MODULE_AUTHOR("Benjamin Tissoires <benjamin.tissoires@gmail.com>");
 MODULE_AUTHOR("Bastien Nocera <hadess@hadess.net>");
