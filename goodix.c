@@ -430,6 +430,69 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 	return 0;
 }
 
+/**
+ * goodix_fetch_sysconfig_para - get config info from sysconfig.fex file.
+ * return value:
+ *	= 0: success;
+ *	< 0: err;
+ */
+static int goodix_fetch_sysconfig_para(void)
+{
+	int ret = -1;
+	int ctp_used = 0;
+	char name[I2C_NAME_SIZE];
+	int screen_max_x = 0;
+	int screen_max_y = 0;
+	script_parser_value_type_t type = SCRIPT_PARSER_VALUE_TYPE_STRING;
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_used", &ctp_used, 1)) {
+		printk(KERN_ERR "*** ctp_used set to 0!\n");
+		printk(KERN_ERR "*** If use ctp, please set ctp_used to 1.\n");
+		return ret;
+	}
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch_ex("ctp_para", "ctp_name", (int *)(&name), &type, sizeof(name)/sizeof(int))) {
+		printk(KERN_ERR "Failed to fetch ctp_name.\n");
+		return ret;
+	}
+	printk(KERN_INFO "ctp_name is %s.\n", name);
+
+	if (strcmp(GOODIX_CTP_NAME, name)) {
+		printk(KERN_ERR "Name %s does not match GOODIX_CTP_NAME.\n", name);
+		return ret;
+	}
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_twi_id", &twi_id, sizeof(twi_id)/sizeof(__u32))) {
+		printk(KERN_ERR "Failed to fetch ctp_twi_id.\n");
+		return ret;
+	}
+	printk(KERN_INFO "ctp_twi_id is %d.\n", twi_id);
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_twi_addr", &twi_addr, sizeof(twi_addr)/sizeof(__u32))) {
+		printk(KERN_ERR "Failed to fetch ctp_twi_addr.\n");
+		return ret;
+	}
+	printk(KERN_INFO "ctp_twi_addr is 0x%hx.\n", twi_addr);
+
+	normal_i2c[0] = twi_addr;
+	normal_i2c[1] = I2C_CLIENT_END;
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_screen_max_x", &screen_max_x, 1)) {
+		printk(KERN_ERR "Failed to fetch ctp_screen_max_x.\n");
+		return ret;
+	}
+	printk(KERN_INFO "screen_max_x = %d.\n", screen_max_x);
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_screen_max_y", &screen_max_y, 1)) {
+		printk(KERN_ERR "Failed to fetch ctp_screen_max_y.\n");
+		return ret;
+	}
+	printk(KERN_INFO "screen_max_y = %d.\n", screen_max_y);
+
+	return 0;
+}
+
+
 static int goodix_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
