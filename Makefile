@@ -8,7 +8,7 @@ $(MODULE_NAME)-y	:= $(MODULE_FILENAME).o
 
 obj-m			+= $(MODULE_NAME).o
 
-KDIR := /lib/modules/$(shell uname -r)/build
+KDIR := /usr/src/linux
 PWD := $(shell pwd)
 default:
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules

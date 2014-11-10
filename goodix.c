@@ -41,6 +41,7 @@ struct goodix_ts_data {
 	unsigned int int_trigger_type;
 };
 
+#define GOODIX_CTP_NAME			"Goodix-TS"
 #define GOODIX_CHANGE_X2Y		1
 
 #define GOODIX_MAX_HEIGHT		4096
@@ -94,6 +95,7 @@ static int int_cfg_addr[] = { PIO_INT_CFG0_OFFSET, \
 
 /* Addresses to scan */
 static __u32 twi_id;
+static __u32 twi_addr;
 static const unsigned short normal_i2c[2] = {0x5d, I2C_CLIENT_END};
 
 /**
@@ -208,6 +210,7 @@ static void goodix_process_events(struct goodix_ts_data *ts)
  */
 static irqreturn_t goodix_ts_irq_handler(int irq, void *dev_id)
 {
+	int reg_val;
 	static const u8 end_cmd[] = {
 		GOODIX_READ_COOR_ADDR >> 8,
 		GOODIX_READ_COOR_ADDR & 0xff,
@@ -240,7 +243,7 @@ static void goodix_clear_penirq(void)
 {
 	int reg_val;
 	reg_val = readl(gpio_addr + PIO_INT_STAT_OFFSET);
-	if (reg_val = (reg_val&(1<<(CTP_IRQ_NO))))
+	if ((reg_val = (reg_val&(1<<(CTP_IRQ_NO)))))
 		writel(reg_val, gpio_addr + PIO_INT_STAT_OFFSET);
 	return;
 }
@@ -497,7 +500,6 @@ static int goodix_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
 	struct goodix_ts_data *ts;
-	unsigned long irq_flags;
 	int error;
 	u16 version_info;
 
