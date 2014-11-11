@@ -599,7 +599,7 @@ static int goodix_ts_detect(struct i2c_client *client, struct i2c_board_info *in
 }
 
 static const struct i2c_device_id goodix_ts_id[] = {
-	{ "GDIX1001:00", 0 },
+	{ GOODIX_CTP_NAME, 0 },
 	{ }
 };
 
@@ -611,7 +611,7 @@ static struct i2c_driver goodix_ts_driver = {
 	.remove = goodix_ts_remove,
 	.id_table = goodix_ts_id,
 	.driver = {
-		.name = "Goodix-TS",
+		.name = GOODIX_CTP_NAME,
 		.owner = THIS_MODULE,
 	},
 	.address_list = u_i2c_addr.normal_i2c,
