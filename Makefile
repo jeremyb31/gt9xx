@@ -8,7 +8,7 @@ $(MODULE_NAME)-y	:= $(MODULE_FILENAME).o
 
 obj-m			+= $(MODULE_NAME).o
 
-KDIR := /usr/src/linux
+KDIR := /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 default:
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
@@ -21,4 +21,3 @@ uninstall:
 
 clean:
 	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) clean
-
