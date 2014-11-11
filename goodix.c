@@ -447,6 +447,7 @@ static int goodix_fetch_sysconfig_para(void)
 	int ret = -1;
 	int ctp_used = 0;
 	char name[I2C_NAME_SIZE];
+	static __u32 twi_addr;
 	int screen_max_x = 0;
 	int screen_max_y = 0;
 	script_parser_value_type_t type = SCRIPT_PARSER_VALUE_TYPE_STRING;
