@@ -94,8 +94,11 @@ static int int_cfg_addr[] = { PIO_INT_CFG0_OFFSET, \
 			      PIO_INT_CFG3_OFFSET };
 
 /* Addresses to scan */
+static union{
+       unsigned short dirty_addr_buf[2];
+       const unsigned short normal_i2c[2];
+} u_i2c_addr = {{0x00},};
 static __u32 twi_id;
-static __u32 twi_addr;
 static const unsigned short normal_i2c[2] = {0x5d, I2C_CLIENT_END};
 
 /**
@@ -477,8 +480,8 @@ static int goodix_fetch_sysconfig_para(void)
 	}
 	printk(KERN_INFO "ctp_twi_addr is 0x%hx.\n", twi_addr);
 
-	normal_i2c[0] = twi_addr;
-	normal_i2c[1] = I2C_CLIENT_END;
+	u_i2c_addr.dirty_addr_buf[0] = twi_addr;
+	u_i2c_addr.dirty_addr_buf[1] = I2C_CLIENT_END;
 
 	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_screen_max_x", &screen_max_x, 1)) {
 		printk(KERN_ERR "Failed to fetch ctp_screen_max_x.\n");
@@ -611,7 +614,7 @@ static struct i2c_driver goodix_ts_driver = {
 		.name = "Goodix-TS",
 		.owner = THIS_MODULE,
 	},
-	.address_list = normal_i2c,
+	.address_list = u_i2c_addr.normal_i2c,
 };
 
 /**
