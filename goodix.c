@@ -99,7 +99,7 @@ static union{
        const unsigned short normal_i2c[2];
 } u_i2c_addr = {{0x00},};
 static __u32 twi_id;
-static const unsigned short normal_i2c[2] = {0x5d, I2C_CLIENT_END};
+static __u32 twi_addr;
 
 /**
  * goodix_i2c_read - read data from a register of the i2c slave device.
@@ -447,7 +447,6 @@ static int goodix_fetch_sysconfig_para(void)
 	int ret = -1;
 	int ctp_used = 0;
 	char name[I2C_NAME_SIZE];
-	static __u32 twi_addr;
 	int screen_max_x = 0;
 	int screen_max_y = 0;
 	script_parser_value_type_t type = SCRIPT_PARSER_VALUE_TYPE_STRING;
