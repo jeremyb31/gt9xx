@@ -42,7 +42,6 @@ struct goodix_ts_data {
 };
 
 #define GOODIX_CTP_NAME			"Goodix-TS"
-#define GOODIX_CHANGE_X2Y		1
 
 #define GOODIX_INT_TRIGGER		1
 #define GOODIX_CONTACT_SIZE		8
@@ -101,6 +100,7 @@ static __u32 twi_addr;
 
 static int screen_max_x = 0;
 static int screen_max_y = 0;
+static int exchange_x_y_flag = 0;
 
 /**
  * goodix_i2c_read - read data from a register of the i2c slave device.
@@ -168,9 +168,8 @@ static void goodix_ts_report_touch(struct goodix_ts_data *ts, u8 *coor_data)
 	int input_y = get_unaligned_le16(&coor_data[3]);
 	int input_w = get_unaligned_le16(&coor_data[5]);
 
-	#if GOODIX_CHANGE_X2Y
+	if (exchange_x_y_flag == 1)
 		swap(input_x, input_y);
-	#endif
 
 	input_mt_slot(ts->input_dev, id);
 	input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, true);
@@ -407,9 +406,8 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 				  BIT_MASK(EV_KEY) |
 				  BIT_MASK(EV_ABS);
 
-	#if GOODIX_CHANGE_X2Y
+	if (exchange_x_y_flag == 1)
 		swap(ts->abs_x_max, ts->abs_y_max);
-	#endif
 
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0,
 				ts->abs_x_max, 0, 0);
@@ -493,6 +491,12 @@ static int goodix_fetch_sysconfig_para(void)
 		return ret;
 	}
 	printk(KERN_INFO "screen_max_y = %d.\n", screen_max_y);
+
+	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_exchange_x_y_flag", &exchange_x_y_flag, 1)) {
+		printk(KERN_ERR "Failed to fetch ctp_exchange_x_y_flag.\n");
+		return ret;
+	}
+	printk(KERN_INFO "exchange_x_y_flag = %d.\n", exchange_x_y_flag);
 
 	return 0;
 }
