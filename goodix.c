@@ -44,8 +44,6 @@ struct goodix_ts_data {
 #define GOODIX_CTP_NAME			"Goodix-TS"
 #define GOODIX_CHANGE_X2Y		1
 
-#define GOODIX_MAX_HEIGHT		4096
-#define GOODIX_MAX_WIDTH		4096
 #define GOODIX_INT_TRIGGER		1
 #define GOODIX_CONTACT_SIZE		8
 #define GOODIX_MAX_CONTACTS		10
@@ -100,6 +98,9 @@ static union{
 } u_i2c_addr = {{0x00},};
 static __u32 twi_id;
 static __u32 twi_addr;
+
+static int screen_max_x = 0;
+static int screen_max_y = 0;
 
 /**
  * goodix_i2c_read - read data from a register of the i2c slave device.
@@ -317,8 +318,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 		dev_warn(&ts->client->dev,
 			 "Error reading config (%d), using defaults\n",
 			 error);
-		ts->abs_x_max = GOODIX_MAX_WIDTH;
-		ts->abs_y_max = GOODIX_MAX_HEIGHT;
+		ts->abs_x_max = screen_max_x;
+		ts->abs_y_max = screen_max_y;
 		ts->int_trigger_type = GOODIX_INT_TRIGGER;
 		return;
 	}
@@ -329,8 +330,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 	if (!ts->abs_x_max || !ts->abs_y_max) {
 		dev_err(&ts->client->dev,
 			"Invalid config, using defaults\n");
-		ts->abs_x_max = GOODIX_MAX_WIDTH;
-		ts->abs_y_max = GOODIX_MAX_HEIGHT;
+		ts->abs_x_max = screen_max_x;
+		ts->abs_y_max = screen_max_y;
 	}
 }
 
@@ -447,8 +448,6 @@ static int goodix_fetch_sysconfig_para(void)
 	int ret = -1;
 	int ctp_used = 0;
 	char name[I2C_NAME_SIZE];
-	int screen_max_x = 0;
-	int screen_max_y = 0;
 	script_parser_value_type_t type = SCRIPT_PARSER_VALUE_TYPE_STRING;
 
 	if (SCRIPT_PARSER_OK != script_parser_fetch("ctp_para", "ctp_used", &ctp_used, 1)) {
