@@ -2,6 +2,7 @@
  *  Driver for Goodix Touchscreens
  *
  *  Copyright (c) 2014 Red Hat Inc.
+ *  Copyright (c) 2015 K. Merker <merker@debian.org>
  *
  *  This code is based on gt9xx.c authored by andrew@goodix.com:
  *
@@ -53,6 +54,9 @@ struct goodix_ts_data {
 	atomic_t open_count;
 	/* Protects power management calls and access to suspended flag */
 	struct mutex mutex;
+	bool swapped_x_y;
+	bool inverted_x;
+	bool inverted_y;
 };
 
 #define GOODIX_GPIO_INT_NAME		"irq"
@@ -267,6 +271,14 @@ static void goodix_ts_report_touch(struct goodix_ts_data *ts, u8 *coor_data)
 		input_x = ts->abs_x_max - input_x;
 		input_y = ts->abs_y_max - input_y;
 	}
+
+	/* Inversions have to happen before axis swapping */
+	if (ts->inverted_x)
+		input_x = ts->abs_x_max - input_x;
+	if (ts->inverted_y)
+		input_y = ts->abs_y_max - input_y;
+	if (ts->swapped_x_y)
+		swap(input_x, input_y);
 
 	input_mt_slot(ts->input_dev, id);
 	input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, true);
@@ -673,6 +685,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 			 error);
 		ts->abs_x_max = GOODIX_MAX_WIDTH;
 		ts->abs_y_max = GOODIX_MAX_HEIGHT;
+		if (ts->swapped_x_y)
+			swap(ts->abs_x_max, ts->abs_y_max);
 		ts->int_trigger_type = GOODIX_INT_TRIGGER;
 		ts->max_touch_num = GOODIX_MAX_CONTACTS;
 		return;
@@ -680,6 +694,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 
 	ts->abs_x_max = get_unaligned_le16(&config[RESOLUTION_LOC]);
 	ts->abs_y_max = get_unaligned_le16(&config[RESOLUTION_LOC + 2]);
+	if (ts->swapped_x_y)
+		swap(ts->abs_x_max, ts->abs_y_max);
 	ts->int_trigger_type = config[TRIGGER_LOC] & 0x03;
 	ts->max_touch_num = config[MAX_CONTACTS_LOC] & 0x0f;
 	if (!ts->abs_x_max || !ts->abs_y_max || !ts->max_touch_num) {
@@ -687,6 +703,8 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 			"Invalid config, using defaults\n");
 		ts->abs_x_max = GOODIX_MAX_WIDTH;
 		ts->abs_y_max = GOODIX_MAX_HEIGHT;
+		if (ts->swapped_x_y)
+			swap(ts->abs_x_max, ts->abs_y_max);
 		ts->max_touch_num = GOODIX_MAX_CONTACTS;
 	}
 
@@ -811,6 +829,13 @@ static int goodix_request_input_dev(struct goodix_ts_data *ts)
 static int goodix_configure_dev(struct goodix_ts_data *ts)
 {
 	int error;
+
+	ts->swapped_x_y = device_property_read_bool(&ts->client->dev,
+						    "touchscreen-swapped-x-y");
+	ts->inverted_x = device_property_read_bool(&ts->client->dev,
+						   "touchscreen-inverted-x");
+	ts->inverted_y = device_property_read_bool(&ts->client->dev,
+						   "touchscreen-inverted-y");
 
 	goodix_read_config(ts);
 
