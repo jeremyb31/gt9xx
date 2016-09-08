@@ -63,6 +63,7 @@ struct goodix_ts_data {
 #define GOODIX_DEVICE_ESD_TIMEOUT_PROPERTY     "esd-recovery-timeout-ms"
 
 /* Chuwi Hi12 tablet screen max is 2160 x 1440 and the Chuwi Hi10 is 1920 x 1200 */
+/* lowered defaults for testing on Chuwi tablets */
 // #define GOODIX_MAX_HEIGHT		4096
 #define GOODIX_MAX_HEIGHT		1920
 // #define GOODIX_MAX_WIDTH		4096
