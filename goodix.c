@@ -62,11 +62,15 @@ struct goodix_ts_data {
 #define GOODIX_GPIO_RST_NAME		"reset"
 #define GOODIX_DEVICE_ESD_TIMEOUT_PROPERTY     "esd-recovery-timeout-ms"
 
-#define GOODIX_MAX_HEIGHT		4096
-#define GOODIX_MAX_WIDTH		4096
+/* Chuwi Hi12 tablet screen max is 2160 x 1440 and the Chuwi Hi10 is 1920 x 1200 */
+// #define GOODIX_MAX_HEIGHT		4096
+#define GOODIX_MAX_HEIGHT		1920
+// #define GOODIX_MAX_WIDTH		4096
+#define GOODIX_MAX_WIDTH		1200
 #define GOODIX_INT_TRIGGER		1
 #define GOODIX_CONTACT_SIZE		8
-#define GOODIX_MAX_CONTACTS		10
+//#define GOODIX_MAX_CONTACTS		10
+#define GOODIX_MAX_CONTACTS		5
 
 #define GOODIX_CONFIG_MAX_LENGTH	240
 #define GOODIX_CONFIG_911_LENGTH	186
@@ -189,6 +193,7 @@ static int goodix_i2c_write_u8(struct i2c_client *client, u16 reg, u8 value)
 static int goodix_get_cfg_len(u16 id)
 {
 	switch (id) {
+	case 9111:
 	case 911:
 	case 9271:
 	case 9110:
@@ -673,6 +678,7 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 
 	error = goodix_i2c_read(ts->client, GOODIX_REG_CONFIG_DATA,
 				config, ts->cfg_len);
+
 	if (error) {
 		dev_warn(&ts->client->dev,
 			 "Error reading config (%d), using defaults\n",
@@ -692,6 +698,10 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 		swap(ts->abs_x_max, ts->abs_y_max);
 	ts->int_trigger_type = config[TRIGGER_LOC] & 0x03;
 	ts->max_touch_num = config[MAX_CONTACTS_LOC] & 0x0f;
+
+	dev_info(&ts->client->dev, "bsb_di 20160908; cfg_len: %d, x_max: %d, y_max: %d, touch_num: %d \n", ts->cfg_len, ts->abs_x_max,
+		ts->abs_x_max, ts->max_touch_num);			//bsb ;
+
 	if (!ts->abs_x_max || !ts->abs_y_max || !ts->max_touch_num) {
 		dev_err(&ts->client->dev,
 			"Invalid config, using defaults\n");
@@ -699,6 +709,7 @@ static void goodix_read_config(struct goodix_ts_data *ts)
 		ts->abs_y_max = GOODIX_MAX_HEIGHT;
 		if (ts->swapped_x_y)
 			swap(ts->abs_x_max, ts->abs_y_max);
+		ts->int_trigger_type = GOODIX_INT_TRIGGER; //bsb; 'error reading config' above called this, so assuming it needs to be set
 		ts->max_touch_num = GOODIX_MAX_CONTACTS;
 	}
 
